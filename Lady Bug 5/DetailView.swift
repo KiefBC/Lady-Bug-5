@@ -8,11 +8,32 @@
 import SwiftUI
 
 struct DetailView: View {
+    @Binding var ladybug: Ladybug
+    
     var body: some View {
-        Text(/*@START_MENU_TOKEN@*/"Hello, World!"/*@END_MENU_TOKEN@*/)
+        VStack {
+            Image(systemName: "ladybug.fill")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 120, height: 120)
+                .foregroundColor(.black)
+            
+            TextField("Name", text: $ladybug.name)
+                .font(.title)
+                .multilineTextAlignment(.center)
+            
+            Text(formattedDate)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+            
+            Spacer()
+        }
+        .padding()
     }
-}
-
-#Preview {
-    DetailView()
+    
+    var formattedDate: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd, h:mma"
+        return formatter.string(from: ladybug.date)
+    }
 }

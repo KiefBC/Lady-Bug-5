@@ -7,12 +7,28 @@
 
 import SwiftUI
 
-struct RowView: View {
-    var body: some View {
-        Text(/*@START_MENU_TOKEN@*/"Hello, World!"/*@END_MENU_TOKEN@*/)
-    }
+/// LadyBug represents a LadyBug object.
+struct Ladybug: Identifiable {
+    var id = UUID()
+    var name: String = "Ladybug"
+    var date: Date = Date()
 }
 
-#Preview {
-    RowView()
+/// RowView represents a row in a list of LadyBugs.
+struct RowView: View {
+    var ladybug: Ladybug
+    
+    var body: some View {
+        HStack {
+            Image(systemName: "ladybug.fill")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 40, height: 40)
+                .foregroundColor(.black)
+            
+            Text(ladybug.name)
+            
+            Spacer()
+        }
+    }
 }

@@ -1,26 +1,31 @@
 import SwiftUI
 
 struct ContentView: View {
-    @State private var ladybugs = [Ladybug]()
+    @State private var ladybugs: [Ladybug] = [Ladybug()]
     @State private var editMode: EditMode = .inactive
-    
+
     var body: some View {
         NavigationView {
             List {
-                ForEach(ladybugs) { ladybug in
-                    NavigationLink(destination: DetailView(ladybug: binding(for: ladybug))) {
-                        RowView(ladybug: ladybug)
+                ForEach($ladybugs) { $ladybug in
+                    NavigationLink(destination: DetailView(ladybug: $ladybug)) {
+                        RowView(ladybug: $ladybug)
+                    }
+                    .onChange(of: ladybug) { _ in
+                        saveLadybugs()
                     }
                 }
                 .onDelete(perform: deleteLadybugs)
                 .onMove(perform: moveLadybugs)
             }
+            .padding(.horizontal, 20) // Add horizontal padding to the list
+
             .navigationTitle("Ladybugs")
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     EditButton()
                 }
-                
+
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: addLadybug) {
                         Image(systemName: "plus")
@@ -28,28 +33,36 @@ struct ContentView: View {
                 }
             }
             .environment(\.editMode, $editMode)
+            .onAppear(perform: loadLadybugs)
+            .onDisappear(perform: saveLadybugs)
         }
     }
-    
-    private func binding(for ladybug: Ladybug) -> Binding<Ladybug> {
-        guard let index = ladybugs.firstIndex(where: { $0.id == ladybug.id }) else {
-            fatalError("Ladybug not found")
-        }
-        return $ladybugs[index]
-    }
-    
-    // Add a new ladybug to the list
+
     private func addLadybug() {
         ladybugs.append(Ladybug())
+        saveLadybugs()
     }
-    
-    // Delete ladybugs
+
     private func deleteLadybugs(at offsets: IndexSet) {
         ladybugs.remove(atOffsets: offsets)
+        saveLadybugs()
     }
-    
-    // Move ladybugs for drag and drop reordering
+
     private func moveLadybugs(from source: IndexSet, to destination: Int) {
         ladybugs.move(fromOffsets: source, toOffset: destination)
+        saveLadybugs()
+    }
+
+    private func loadLadybugs() {
+        if let data = UserDefaults.standard.data(forKey: "ladybugs"),
+           let decoded = try? JSONDecoder().decode([Ladybug].self, from: data) {
+            ladybugs = decoded
+        }
+    }
+
+    func saveLadybugs() {
+        if let encoded = try? JSONEncoder().encode(ladybugs) {
+            UserDefaults.standard.set(encoded, forKey: "ladybugs")
+        }
     }
 }

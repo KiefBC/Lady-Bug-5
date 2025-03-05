@@ -11,42 +11,75 @@ struct DetailView: View {
     @Environment(\.presentationMode) var presentationMode
 
     var body: some View {
-        VStack {
-            if let image = ladybug.image {
-                Image(uiImage: image)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: 120, height: 120)
-                    .foregroundColor(.black)
-            } else {
-                Image(systemName: "ladybug.fill")
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: 120, height: 120)
-                    .foregroundColor(.black)
+        ZStack {
+            VStack {
+                if let image = ladybug.image {
+                    Image(uiImage: image)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 120, height: 120)
+                        .foregroundColor(.black)
+                } else {
+                    Image(systemName: "ladybug.fill")
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 120, height: 120)
+                        .foregroundColor(.black)
+                }
+
+                Button("Select Image") {
+                    isImagePickerPresented = true
+                }
+                .sheet(isPresented: $isImagePickerPresented, onDismiss: saveImage) {
+                    ImagePicker(image: $ladybug.image)
+                }
+                
+                // Add Remove Image button
+                if ladybug.image != nil {
+                    Button("Remove Image") {
+                        ladybug.image = nil
+                        forceSaveToUserDefaults() // Force immediate save when image is removed
+                    }
+                    .foregroundColor(.red)
+                }
+
+                TextField("Name", text: $ladybug.name)
+                    .font(.title)
+                    .multilineTextAlignment(.center)
+                    .onSubmit {
+                        // Explicitly save when Enter/Return is pressed
+                        saveChangesToUserDefaults()
+                    }
+                    .onTapGesture {
+                        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                    }
+
+                Text(formattedDate)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+
+                Spacer()
             }
-
-            Button("Select Image") {
-                isImagePickerPresented = true
+            
+            if pickerVisible {
+                ImageView(
+                    pickerVisible: $pickerVisible,
+                    sourceType: $imageSource,
+                    action: { (value) in
+                        if let image = value {
+                            DispatchQueue.main.asyncAfter(deadline: DispatchTime.now()) {
+                                self.ladybug.image = image
+                                self.forceSaveToUserDefaults() // Force immediate save when image is added
+                            }
+                        }
+                    }
+                )
             }
-            .sheet(isPresented: $isImagePickerPresented, onDismiss: saveImage) {
-                ImagePicker(image: $ladybug.image)
-            }
-
-            TextField("Name", text: $ladybug.name)
-                .font(.title)
-                .multilineTextAlignment(.center)
-
-            Text(formattedDate)
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-
-            Spacer()
-        }
+        }  // End of ZStack
         .padding()
         .navigationBarBackButtonHidden(false)
-        .onChange(of: ladybug) { _ in
-            saveLadybugs()
+        .onChange(of: ladybug) { oldValue, newValue in
+            saveChangesToUserDefaults()
         }
         .toolbar {
             ToolbarItemGroup {
@@ -72,6 +105,10 @@ struct DetailView: View {
         .alert(isPresented: $showCameraAlert) {
             Alert(title: Text("Error"), message: Text("Camera not available"), dismissButton: .default(Text("OK")))
         }
+        .onDisappear {
+            // Final save attempt when leaving detail view
+            forceSaveToUserDefaults()
+        }
     }
 
     var formattedDate: String {
@@ -81,7 +118,39 @@ struct DetailView: View {
     }
     
     private func saveImage() {
+        print("Saving image for ladybug: \(ladybug.id)")
+        forceSaveToUserDefaults() // Force immediate save after picking image
+    }
+    
+    // Standard save method - used for most changes
+    private func saveChangesToUserDefaults() {
+        print("Saving changes to UserDefaults for ladybug: \(ladybug.id)")
         saveLadybugs()
+    }
+    
+    // Force save method - used specifically for image operations
+    private func forceSaveToUserDefaults() {
+        print("FORCE SAVING to UserDefaults for ladybug: \(ladybug.id), has image: \(ladybug.image != nil)")
+        saveLadybugs()
+        
+        // Get all ladybugs
+        if let data = UserDefaults.standard.data(forKey: "ladybugs"),
+           let allLadybugs = try? JSONDecoder().decode([Ladybug].self, from: data) {
+            
+            // Find and update our specific ladybug
+            if let index = allLadybugs.firstIndex(where: { $0.id == ladybug.id }) {
+                var updatedLadybugs = allLadybugs
+                updatedLadybugs[index] = ladybug
+                
+                // Force save the entire array back to UserDefaults
+                if let encodedUpdated = try? JSONEncoder().encode(updatedLadybugs) {
+                    UserDefaults.standard.set(encodedUpdated, forKey: "ladybugs")
+                    UserDefaults.standard.synchronize() // Force immediate write to disk
+                    
+                    print("Successfully force-saved all \(updatedLadybugs.count) ladybugs to UserDefaults")
+                }
+            }
+        }
     }
     
     private func saveLadybugs() {
@@ -95,11 +164,20 @@ struct DetailView: View {
                     updatedLadybugs[index] = ladybug
                     if let encodedUpdated = try? JSONEncoder().encode(updatedLadybugs) {
                         UserDefaults.standard.set(encodedUpdated, forKey: "ladybugs")
+                        UserDefaults.standard.synchronize() // Force immediate write to disk
+                    }
+                } else {
+                    // If the ladybug isn't found, add it to the array
+                    updatedLadybugs.append(ladybug)
+                    if let encodedUpdated = try? JSONEncoder().encode(updatedLadybugs) {
+                        UserDefaults.standard.set(encodedUpdated, forKey: "ladybugs")
+                        UserDefaults.standard.synchronize() // Force immediate write to disk
                     }
                 }
             } else {
                 // If no existing data, just save this one
                 UserDefaults.standard.set(encoded, forKey: "ladybugs")
+                UserDefaults.standard.synchronize() // Force immediate write to disk
             }
         }
     }

@@ -19,7 +19,7 @@ struct RowView: View {
                     .foregroundColor(.black)
             }
 
-            TextField("Name", text: $ladybug.name)
+            Text(ladybug.name)
 
             Spacer()
         }
